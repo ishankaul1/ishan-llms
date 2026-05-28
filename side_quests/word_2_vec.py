@@ -217,7 +217,7 @@ An interesting follow up here would be -
 
     - Train/test loop on a much larger corpus (a few wikipedia docs/reddit threads, etc.). More data processing
     boilerplate but good practice. Probably can AI-code that part
-    - Implement the actual encode() function and a few tests for e2e behavior after training (eg -- check against a few 
+    - Implement the actual embed() function and a few tests for e2e behavior after training (eg -- check against a few 
     actual words that should be close versus far.)
 
 
