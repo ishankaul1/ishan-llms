@@ -219,6 +219,8 @@ An interesting follow up here would be -
     boilerplate but good practice. Probably can AI-code that part
     - Implement the actual embed() function and a few tests for e2e behavior after training (eg -- check against a few 
     actual words that should be close versus far.)
+    - Probably good practice to also plug in the Rashcka tokenizer patterns into this larger scale repro^ 
+        (eg -- handle eot, unknown etc.)
 
 
 Moving along with the rest of Rashcka in the meantime!
