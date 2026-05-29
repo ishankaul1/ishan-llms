@@ -216,14 +216,15 @@ if __name__ == "__main__":
 """
 NOTE - This worked pretty well for getting the general shape/structure of pytorch training from scratch.
 
-An interesting follow up here would be - 
+BONUS FOLLOW UP EXERCISE: 
 
     - Train/test loop on a much larger corpus (a few wikipedia docs/reddit threads, etc.). More data processing
-    boilerplate but good practice. Probably can AI-code that part
+    boilerplate but good practice. Probably can AI-code a decent amount of it. Getting the 'feel' for the scale
+    would be good though.
     - Implement the actual embed() function and a few tests for e2e behavior after training (eg -- check against a few 
     actual words that should be close versus far.)
-    - Probably good practice to also plug in the Rashcka tokenizer patterns into this larger scale repro^ 
-        (eg -- handle eot, unknown etc.)
+    - Plug in the Rashcka tokenizer patterns into this larger scale repro^ 
+        (eg -- handle eot, unknown, encode/decode() etc.)
 
 
 Moving along with the rest of Rashcka in the meantime!
