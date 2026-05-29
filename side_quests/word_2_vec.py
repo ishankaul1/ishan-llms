@@ -8,12 +8,12 @@ Intuition -
 
 First layer: 1hot tokens (input) -> embeddng (or just tok idx -> embedding for pyt)
 (word)
-[batch x len_corpus] @ [len_corpus dot dims] => batch x dims
+[batch x vocab_size] @ [vocab_size dot dims] => batch x dims
 [10000] dot [21975]T -> [2] (that's your embedding; assuming 1d)
 
 Second layer: embedding -> word space
 
-[batch x dims] @ [dims x len_corpus] -> [batch x len_corpus]
+[batch x dims] @ [dims x vocab_size] -> [batch x vocab_size]
 
 cross entropy loss on the final --> gives you backprop on input -> target prediction
 
@@ -69,11 +69,14 @@ def _build_pairs(lst: list, window: int) -> list[tuple[int, int]]:
     pairs = []  # list of tup(int, int)
     for i_ctr in range(len(lst)):
         # Range from (ctr - window -> ctr + window, excluding ctr)
+        before_rng = range(
+            max(0, i_ctr-window), i_ctr
+        )
         after_rng = range(
             min(i_ctr + 1, len(lst)), min(i_ctr + window + 1, len(lst))
         )  # NOTE - how to prevent going outside of range?
 
-        pairs.extend([(i_ctr, i_ctx) for i_ctx in [*after_rng]])
+        pairs.extend([(i_ctr, i_ctx) for i_ctx in [*before_rng, *after_rng]])
 
     return pairs
 
