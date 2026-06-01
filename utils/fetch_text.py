@@ -2,7 +2,7 @@ import requests
 
 from diskcache import Cache
 
-cache = Cache("./diskcache")
+cache = Cache("./.diskcache")
 
 
 @cache.memoize()
