@@ -14,6 +14,7 @@ class GPTDatasetV1(Dataset):
         # Generate input -> output tensors
 
         # NOTE - he doesn't preprocess/unroll them. Only returns x->y tensors. Why?
+        # Will he just unroll in the train loop?
         for i_start in range(0, len(token_ids) - max_length, stride):
             input_chunk = token_ids[i_start : i_start + max_length]
             target_chunk = token_ids[i_start + 1 : i_start + max_length + 1]

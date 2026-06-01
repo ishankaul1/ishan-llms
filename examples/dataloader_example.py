@@ -1,11 +1,9 @@
-import requests
 import tiktoken
 
-txt = requests.get(
-    "https://raw.githubusercontent.com/rasbt/"
-    "LLMs-from-scratch/main/ch02/01_main-chapter-code/"
-    "the-verdict.txt"
-).text
+from utils.constants import THE_VERDICT_URL
+from utils.fetch_text import fetch_text
+
+txt = fetch_text(THE_VERDICT_URL)
 
 tokenizer = tiktoken.get_encoding("gpt2")
 
@@ -30,13 +28,13 @@ Eg -- this is just the first sample of 4 out of the 50 sample; we could grab 46 
 context_size = 4
 
 x = enc_sample[:context_size]
-y = enc_sample[1:context_size+1]
+y = enc_sample[1 : context_size + 1]
 
 print(f"x: {x}")
 print(f"y:      {y}")
 
 
-for i in range(1, context_size+1):
+for i in range(1, context_size + 1):
     context = enc_sample[:i]
     desired = enc_sample[i]
     print(f"{tokenizer.decode(context)} -----> {tokenizer.decode([desired])}")
