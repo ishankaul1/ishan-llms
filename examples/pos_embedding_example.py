@@ -53,6 +53,8 @@ input_embed = tok_embed + pos_embed
 # This just works; each of the 8 samples in the batch
 # get 1 embed for each token pos added to them; 
 # pytorch automatically 'unrolls'
-# TODO - look into how they impl that in the lib
+# TODO - would be interesting to learn undertsand deeply _how_
+# pytorch unrolls in general. Eg what the algorithm of choice is, 
+# any weird edge cases or gotchas, etc.
 
 print(f"Input Embed:\n {input_embed.shape}")
