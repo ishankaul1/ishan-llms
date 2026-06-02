@@ -2,6 +2,7 @@
 Attention examples; probably the most important secsion of the whole book.
 """
 
+from sympy.polys.specialpolys import _w_2
 import torch
 
 CTX_LEN = 6
@@ -9,7 +10,7 @@ NUM_DIMS = 3
 
 inputs = torch.rand(CTX_LEN, NUM_DIMS)
 # 6 tokens embed dim 3
-print(f"INPUTS: {inputs}")
+print(f"INPUTS:\n{inputs}")
 
 
 """
@@ -69,7 +70,6 @@ def _run_multi(inputs: torch.Tensor):
     If our goal is to get row i's dot with column j at i, j, we've got to transpose input in the second
     matrix.
     """
-    
 
     attn_scores = inputs @ inputs.T
 
@@ -93,13 +93,67 @@ def _run_multi(inputs: torch.Tensor):
     At i, j I want the output dim j of token i; eg each row of i is just its context vector
     You get that with essentially the weighted sum of each output dim of each input token
     multiplied by its attn weight, hence why the weighted sum "just works" without the
-    transpose; the 6 attn weights (one per tok) y vec in mat A line up to splay across each  
+    transpose.
+    
+    Along the inner dim - the 6 attn weights (one per tok) y vec in mat A line up to splay across each  
     of the 6 token pos in vec B to compute one weighted score per dim per token.
     
 
     """
-    all_ctx_vecs  = attn_weights @ inputs
+    all_ctx_vecs = attn_weights @ inputs
     print(f"All ctx vecs:\n {all_ctx_vecs}")
 
 
-_run_multi(inputs)
+def _run_trainable_weights(inputs: torch.Tensor):
+    D_IN = inputs.shape[1]
+    D_OUT = 2  # Just for learning purposes
+
+    # Project -> output dim along the D_In dimension
+    # NOTE - matmul for (m x n) (n x o) matrix does
+    # m x n x o multiplications; produces m x o output vector, where
+    #
+    w_q = torch.nn.Parameter(torch.rand(D_IN, D_OUT), requires_grad=False)
+    w_k = torch.nn.Parameter(torch.rand(D_IN, D_OUT), requires_grad=False)
+    w_v = torch.nn.Parameter(torch.rand(D_IN, D_OUT), requires_grad=False)
+
+    # Target - context vector @ pos 2
+
+    x_2 = inputs[1]  # vector size D_IN
+
+    q_2 = x_2 @ w_q
+    # k_2 = x_2 @ w_k
+    # v_2 = x_2 @ w_v
+
+    print(f"w_q:\n {w_q}")
+    print(f"x_1:\n {x_2}")
+
+    # NOTE -> we just projected into 1 x 2 vectory of output_dim size
+    print(f"q_2:\n {q_2}")
+
+    keys = inputs @ w_k
+    vals = inputs @ w_v
+
+    print(f"keys.shape: {keys.shape}")
+    print(f"vals.shape: {vals.shape}")
+
+    # Dot the query @ 2 with each key vector for each token (need to splay them so token pos runs
+    # column-wise)
+    attn_scores_2 = q_2 @ keys.T
+    print(f"attn_scores_2:\n{attn_scores_2}")
+
+    # NOTE -- Raschka kind of just throws in the sqrt but explains it later.
+    # The tldr for why - large embed dims w/ large dot products often result in 
+    # very small gradients during backprop once softmaxed;
+    # Small gradients result in slow/stagnated learning. 
+    # Scaling down the values before softmax helps mitigate
+
+    # TODO - how did they learn to scale it by sqrt of embed dim though? Vs just embed dim or 
+    # some other derivative value of it?
+    attn_weights_2 = torch.softmax(attn_scores_2 / D_OUT**0.5, dim=-1)
+    print(f"attn_weights_2:\n {attn_weights_2}")
+
+    ctx_vec_2 = attn_weights_2 @ vals
+    print(f"ctx_vec_2: {ctx_vec_2}")
+
+
+_run_trainable_weights(inputs)
