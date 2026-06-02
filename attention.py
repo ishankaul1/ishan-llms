@@ -26,8 +26,11 @@ class SelfAttentionV1(nn.Module):
         k = x @ self.w_k
         v = x @ self.w_v
 
+        # print(f"q shape: {q.shape}")
+        # print(f"k.T shape: {k.mT.shape}")
+
         # Get attn scores for all
-        attn_scores = q @ k.T
+        attn_scores = q @ k.mT
 
         # Scaled dot product attn for weights
         attn_weights = torch.softmax(attn_scores / (self.d_out**0.5), dim=-1)
@@ -52,11 +55,11 @@ if __name__ == "__main__":
 
     print(f"Outputs 2d shape: {outputs_2d.shape}")
 
-    # 3D Example (DOES NOT WORK -- figure out how we'd scale it up!)
-    # BATCH_SIZE = 20
-    # inputs_3d = torch.rand(BATCH_SIZE, SEQ_LEN, IN_DIM)
+    # 3D Example 
+    BATCH_SIZE = 20
+    inputs_3d = torch.rand(BATCH_SIZE, SEQ_LEN, IN_DIM)
 
-    # outputs_3d = sa_v1(inputs_3d)
+    outputs_3d = sa_v1(inputs_3d)
     
-    # print(f"Outputs 3d shape: {outputs_3d.shape}")
+    print(f"Outputs 3d shape: {outputs_3d.shape}")
 
