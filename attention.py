@@ -16,9 +16,8 @@ class SelfAttentionV1(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input -- assume seq_len * in_dims (at least as dims[-2:])
-        # NOTE/TODO -
+        # TODO -
         # 1) qkv projections are all sequential/not parallel; how would I concat them to parallelize?
-        # 2) This impl breaks in 3d; how would i restructure to be able to fan on batches as well?
 
         # Project input onto q k v
 
