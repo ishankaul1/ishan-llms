@@ -2,7 +2,6 @@
 Attention examples; probably the most important secsion of the whole book.
 """
 
-from sympy.polys.specialpolys import _w_2
 import torch
 
 CTX_LEN = 6
@@ -142,13 +141,14 @@ def _run_trainable_weights(inputs: torch.Tensor):
     print(f"attn_scores_2:\n{attn_scores_2}")
 
     # NOTE -- Raschka kind of just throws in the sqrt but explains it later.
-    # The tldr for why - large embed dims w/ large dot products often result in 
-    # very small gradients during backprop once softmaxed;
-    # Small gradients result in slow/stagnated learning. 
-    # Scaling down the values before softmax helps mitigate
+    # TLDR - large embed dims w/ large dot products often result in 
+    # very small gradients during backprop once softmaxed. 
 
-    # TODO - how did they learn to scale it by sqrt of embed dim though? Vs just embed dim or 
-    # some other derivative value of it?
+    # The reason being -- large dims -> large attn scores, then softmax causes outputs to peak near one-hot.
+    # Backprop over softmax for near-one hot tends to shift both the low and high values barely.
+
+    # NOTE - Why sqrt(d)?
+    # TLDR - Dot product std scales ~ sqrt(d), so divide scores by sqrt(d) to keep softmax inputs O(1)
     attn_weights_2 = torch.softmax(attn_scores_2 / D_OUT**0.5, dim=-1)
     print(f"attn_weights_2:\n {attn_weights_2}")
 
@@ -156,4 +156,53 @@ def _run_trainable_weights(inputs: torch.Tensor):
     print(f"ctx_vec_2: {ctx_vec_2}")
 
 
+def _softmax_grad_norm(scores: torch.Tensor, values: torch.Tensor) -> float:
+    """
+    Use a fake values tensor shape(num_keys) to mimic gradient flowing back through attention via
+    weighted sum.
+
+    """
+    scores = scores.detach().clone().requires_grad_(True)
+    weights = torch.softmax(scores, dim=-1)
+    context = weights @ values
+    context.backward()
+    return scores.grad.norm().item()
+
+
+def _repro_softmax_scale(num_keys: int = 8, seed: int = 42):
+    """
+    Need a *vector* of scores (one query vs many keys). Softmax on a scalar is
+    always [1.0] with zero grad — not useful for this demo.
+    """
+    torch.manual_seed(seed)
+    d_iter = range(64, 1025, 64)
+
+    print(f"{'D':>6}  {'max_unscaled':>12}  {'max_scaled':>12}  {'grad_unscaled':>14}  {'grad_scaled':>14}")
+    print("-" * 66)
+
+    values = torch.randn(num_keys)  # fixed "value" vector for all D; (num_keys)
+
+    for d in d_iter:
+        q = torch.randn(d)  # one query
+        k = torch.randn(num_keys, d)  # many keys → vector of dot products
+
+        scores = q @ k.T  # shape [num_keys] (1, num_keys)
+
+        weights_unscaled = torch.softmax(scores, dim=-1)
+        weights_scaled = torch.softmax(scores / d**0.5, dim=-1)
+
+        grad_unscaled = _softmax_grad_norm(scores, values)
+        grad_scaled = _softmax_grad_norm(scores / d**0.5, values)
+
+        print(
+            f"{d:>6}  {weights_unscaled.max().item():>12.4f}  "
+            f"{weights_scaled.max().item():>12.4f}  "
+            f"{grad_unscaled:>14.6f}  {grad_scaled:>14.6f}"
+        )
+
+
 _run_trainable_weights(inputs)
+
+if __name__ == "__main__":
+    print("\n--- softmax scale repro ---")
+    _repro_softmax_scale()
