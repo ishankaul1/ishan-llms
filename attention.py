@@ -83,6 +83,61 @@ class SelfAttentionV2(nn.Module):
         return (self.w_q.weight.T, self.w_k.weight.T, self.w_v.weight.T)
 
 
+class CausalAttention(nn.Module):
+    def __init__(self, d_in, d_out, max_ctx_len, dropout, qkv_bias=False, ):
+        super().__init__()
+
+        self.d_in = d_in
+        self.d_out = d_out
+
+        self.max_ctx_len = max_ctx_len
+
+        self.w_q = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.w_k = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.w_v = nn.Linear(d_in, d_out, bias=qkv_bias)
+
+        self.dropout = nn.Dropout(dropout)
+
+        self.register_buffer("mask", torch.triu(torch.ones(self.max_ctx_len, self.max_ctx_len), diagonal=1))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Input -- assume seq_len * in_dims (at least as dims[-2:])
+        # TODO -
+        # 1) qkv projections are all sequential/not parallel; how would I concat them to parallelize?
+
+
+        b, num_tokens, dims = x.shape # extract num tokens just in case not always same seq len
+
+
+        # Project input onto q k v
+
+        q = self.w_q(x)
+        k = self.w_k(x)
+        v = self.w_v(x)
+
+
+        # Get attn scores for all
+        attn_scores = q @ k.mT
+
+        # Mask future positions so they don't contribute to the final context vector;
+        # Essentially want _none_ of the value vectors after current pos to contribute to the final sum;
+        # Zero out any position in weight matrix where post(y) > pos(x) (eg the upper triangular)
+        
+        attn_scores.masked_fill_(self.mask.bool()[:num_tokens, :num_tokens], -torch.inf) # Trailing underscore runs in-place
+
+        # Scaled dot product attn for weights
+        attn_weights = torch.softmax(attn_scores / (self.d_out**0.5), dim=-1)
+         
+        # NOTE - should we avoid dropout if in training mode?
+        attn_weights = self.dropout(attn_weights)
+
+        # Get final output v
+        return attn_weights @ v
+
+    def get_weights(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return (self.w_q.weight.T, self.w_k.weight.T, self.w_v.weight.T)
+
+
 if __name__ == "__main__":
     torch.manual_seed(123)
 
@@ -118,3 +173,9 @@ if __name__ == "__main__":
 
     print(f"Output of v1 3d:\n{sa_v1(inputs_3d)}")
     print(f"Output of v2 3d:\n{sa_v2(inputs_3d)}")
+
+    causal_attn = CausalAttention(d_in=IN_DIM, d_out=OUT_DIM, max_ctx_len=SEQ_LEN, dropout=0.2)
+
+    causal_outputs = causal_attn(inputs_3d)
+
+    print(f"Causal Outputs: {causal_outputs}")
