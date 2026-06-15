@@ -84,7 +84,14 @@ class SelfAttentionV2(nn.Module):
 
 
 class CausalAttention(nn.Module):
-    def __init__(self, d_in, d_out, max_ctx_len, dropout, qkv_bias=False, ):
+    def __init__(
+        self,
+        d_in,
+        d_out,
+        max_ctx_len,
+        dropout,
+        qkv_bias=False,
+    ):
         super().__init__()
 
         self.d_in = d_in
@@ -98,37 +105,41 @@ class CausalAttention(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-        self.register_buffer("mask", torch.triu(torch.ones(self.max_ctx_len, self.max_ctx_len), diagonal=1))
+        self.register_buffer(
+            "mask",
+            torch.triu(torch.ones(self.max_ctx_len, self.max_ctx_len), diagonal=1),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input -- assume seq_len * in_dims (at least as dims[-2:])
-        # TODO -
-        # 1) qkv projections are all sequential/not parallel; how would I concat them to parallelize?
 
-
-        b, num_tokens, dims = x.shape # extract num tokens just in case not always same seq len
-
+        b, num_tokens, dims = (
+            x.shape
+        )  # extract num tokens just in case not always same seq len
 
         # Project input onto q k v
 
+        # TODO (BONUS)
+        # qkv projections are all sequential/not parallel; how would I concat them to parallelize?
         q = self.w_q(x)
         k = self.w_k(x)
         v = self.w_v(x)
 
-
         # Get attn scores for all
-        attn_scores = q @ k.mT
+        attn_scores = q @ k.mT  # NOTE - .transpose(1, 2) is the same thing
 
         # Mask future positions so they don't contribute to the final context vector;
         # Essentially want _none_ of the value vectors after current pos to contribute to the final sum;
         # Zero out any position in weight matrix where post(y) > pos(x) (eg the upper triangular)
-        
-        attn_scores.masked_fill_(self.mask.bool()[:num_tokens, :num_tokens], -torch.inf) # Trailing underscore runs in-place
+
+        attn_scores.masked_fill_(
+            self.mask.bool()[:num_tokens, :num_tokens], -torch.inf
+        )  # Trailing underscore runs in-place
 
         # Scaled dot product attn for weights
         attn_weights = torch.softmax(attn_scores / (self.d_out**0.5), dim=-1)
-         
-        # NOTE - should we avoid dropout if in training mode?
+
+        # NOTE - should we avoid dropout if in "inference" mode?
         attn_weights = self.dropout(attn_weights)
 
         # Get final output v
@@ -136,6 +147,27 @@ class CausalAttention(nn.Module):
 
     def get_weights(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return (self.w_q.weight.T, self.w_k.weight.T, self.w_v.weight.T)
+
+
+class MultiHeadAttentionWrapper(nn.Module):
+    def __init__(self, d_in, d_out, ctx_len, dropout, num_heads, kqv_bias=False):
+        super().__init__()
+        self.heads = nn.ModuleList(
+            [
+                # NOTE - Karpathy's impl divides the model dims by num heads & splits them out;
+                # this impl seems to multiply d_in by the amount of heads.
+                # Is this the reason Raschka chooses d_in separate from d_out? (eg - is he going to make d_in = d_out / n_heads?)
+                CausalAttention(d_in, d_out, ctx_len, dropout, kqv_bias)
+                for _ in range(num_heads)
+            ]
+        )
+
+    def forward(self, x):
+        # Run each head separately on the input, then concatenate on the last dim;
+        # EG - we really pull the outputs back together on the final model dimension
+
+        # Also NOTE - this is fully sequential processing
+        return torch.cat([head(x) for head in self.heads], dim=-1)
 
 
 if __name__ == "__main__":
@@ -171,11 +203,21 @@ if __name__ == "__main__":
 
     sa_v1.set_weights(*v2_weights)
 
-    print(f"Output of v1 3d:\n{sa_v1(inputs_3d)}")
-    print(f"Output of v2 3d:\n{sa_v2(inputs_3d)}")
+    # print(f"Output of v1 3d:\n{sa_v1(inputs_3d)}")
+    # print(f"Output of v2 3d:\n{sa_v2(inputs_3d)}")
 
-    causal_attn = CausalAttention(d_in=IN_DIM, d_out=OUT_DIM, max_ctx_len=SEQ_LEN, dropout=0.2)
+    causal_attn = CausalAttention(
+        d_in=IN_DIM, d_out=OUT_DIM, max_ctx_len=SEQ_LEN, dropout=0.2
+    )
 
     causal_outputs = causal_attn(inputs_3d)
 
-    print(f"Causal Outputs: {causal_outputs}")
+    print(f"Causal Outputs: {causal_outputs.shape}")
+
+    mha = MultiHeadAttentionWrapper(IN_DIM, OUT_DIM, SEQ_LEN, 0.2, 8)
+
+    mha_out = mha(inputs_3d)
+
+    print(f"MHA Output Shape: {mha_out.shape}")
+
+    # Prediction - mha is the same along first 2 dim (batch = 20, seq len = 500), but has OUT_DIM * n_heads = 1600 on output dim
