@@ -257,6 +257,7 @@ class MultiHeadedAttention(nn.Module):
 # 1) Make sure my shortcut (direct to num_heads view) actually worked (run the whole thing e2e)
 # 2) Make sure the sizes are all correct throughout (print)
 # 3) Understand what is happening in the whole contiguious() section, and whether the 2-step pipeline is necessary at all or just for show.
+# 4) Play around with torch.view / matmuls separately (load bearing for final understanding)
 
 if __name__ == "__main__":
     torch.manual_seed(123)
