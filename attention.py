@@ -1,3 +1,4 @@
+from this import d
 import torch
 
 import torch.nn as nn
@@ -113,9 +114,14 @@ class CausalAttention(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input -- assume seq_len * in_dims (at least as dims[-2:])
 
-        b, num_tokens, dims = (
-            x.shape
-        )  # extract num tokens just in case not always same seq len
+        x_dim = len(x.shape)
+
+        if x_dim >= 3:
+            b, num_tokens, dims = (
+                x.shape
+            )  # extract num tokens just in case not always same seq len
+        else:
+            num_tokens, dims = x.shape
 
         # Project input onto q k v
 
@@ -170,6 +176,88 @@ class MultiHeadAttentionWrapper(nn.Module):
         return torch.cat([head(x) for head in self.heads], dim=-1)
 
 
+# TODO - Rascka gives you MHA for free; do it yourself without looking!
+
+
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, d_in, d_out, ctx_len, dropout, num_heads, kqv_bias=False):
+        super().__init__()
+
+        # How to get multiple heads?
+        # Start with normal w_k, w_q, w_v;
+        # Split into num_heads separate mats before the projections
+        # Then run normal attn over each; except rolled over separate matrixes in each head
+
+        self.d_in = d_in
+        self.d_out = d_out
+        self.ctx_len = ctx_len
+
+        self.dropout = dropout
+        self.num_heads = num_heads
+        self.kqv_bias = kqv_bias
+
+        self.w_q = nn.Linear(d_in, d_out, bias=kqv_bias)
+        self.w_k = nn.Linear(d_in, d_out, bias=kqv_bias)
+        self.w_v = nn.Linear(d_in, d_out, bias=kqv_bias)
+
+        self.head_dims = self.d_out // self.num_heads
+
+        self.dropout = nn.Dropout(dropout)
+
+        self.out_proj = nn.Linear(d_out, d_out)
+
+        self.register_buffer(
+            "mask", torch.triu(torch.ones(self.ctx_len, self.ctx_len), diagonal=1)
+        )
+
+    def forward(self, x: torch.Tensor):
+        # First, need to do projections
+
+        # Projections matrices stay the same, we just want _attention itself_ run on separate heads
+        queries = self.w_q(x)
+        keys = self.w_k(x)
+        values = self.w_v(x)
+
+        # Assume always 3d now
+        batch, seq_len, d_in = x.shape
+
+        # Now expand the inner dim into num_heads separate;
+        queries = queries.view(batch, self.num_heads, seq_len, self.head_dims)
+        keys = keys.view(batch, self.num_heads, seq_len, self.head_dims)
+        values = values.view(batch, self.num_heads, seq_len, self.head_dims)
+
+        # Now we need to make keys run every pos against every pos; same as last time
+
+        attn_scores = queries @ keys.mT
+
+        # Mask for causal
+
+        mask_bool = self.mask.bool()[:seq_len, :seq_len]
+
+        attn_scores.masked_fill(mask_bool, -torch.inf)
+
+        # Softmax
+
+        attn_weights = torch.softmax(attn_scores / keys.shape(-1) ** 5, dim=-1)
+        # (b x nh x seq x seq)
+
+        # Context vector from values
+        ctx_vec = attn_weights @ values
+        # (b x nh x seq x head_dim)
+
+        # NOTE - why does Raschka do both these ops? What does contiguous do here?
+        ctx_vec.transpose(1, 2)  # b x seq x nh x head_dim
+        ctx_vec = ctx_vec.contiguous().view(batch, seq_len, self.d_out)
+
+        ctx_vec = self.out_proj(ctx_vec)
+        return ctx_vec
+
+
+# TODO next (finished @ pg 91)
+# 1) Make sure my shortcut (direct to num_heads view) actually worked (run the whole thing e2e)
+# 2) Make sure the sizes are all correct throughout (print)
+# 3) Understand what is happening in the whole contiguious() section, and whether the 2-step pipeline is necessary at all or just for show.
+
 if __name__ == "__main__":
     torch.manual_seed(123)
 
@@ -219,5 +307,7 @@ if __name__ == "__main__":
     mha_out = mha(inputs_3d)
 
     print(f"MHA Output Shape: {mha_out.shape}")
-
     # Prediction - mha is the same along first 2 dim (batch = 20, seq len = 500), but has OUT_DIM * n_heads = 1600 on output dim
+
+    mha_out_2d = mha(inputs_2d)  # 500 X 1600
+    print(f"MHA Out Shape: {mha_out_2d.shape}")
