@@ -222,9 +222,12 @@ class MultiHeadedAttention(nn.Module):
         batch, seq_len, d_in = x.shape
 
         # Now expand the inner dim into num_heads separate;
-        queries = queries.view(batch, self.num_heads, seq_len, self.head_dims)
-        keys = keys.view(batch, self.num_heads, seq_len, self.head_dims)
-        values = values.view(batch, self.num_heads, seq_len, self.head_dims)
+        queries = queries.view(batch, seq_len, self.num_heads, , self.head_dims).transpose(1, 2)
+        keys = keys.view(batch, seq_len, self.num_heads, self.head_dims).transpose(1, 2)
+        values = values.view(batch, seq_len, self.num_heads, self.head_dims).transpose(1, 2) 
+
+        # NOTE - very important to split along the inner dim _first_ for view, _then_ transpose for the attention scores
+        # Need to ensure the inner dim is actually the full token tha can be split into heads
 
         # Now we need to make keys run every pos against every pos; same as last time
 
@@ -238,26 +241,23 @@ class MultiHeadedAttention(nn.Module):
 
         # Softmax
 
-        attn_weights = torch.softmax(attn_scores / keys.shape(-1) ** 5, dim=-1)
+        attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
         # (b x nh x seq x seq)
 
         # Context vector from values
         ctx_vec = attn_weights @ values
         # (b x nh x seq x head_dim)
 
-        # NOTE - why does Raschka do both these ops? What does contiguous do here?
-        ctx_vec.transpose(1, 2)  # b x seq x nh x head_dim
-        ctx_vec = ctx_vec.contiguous().view(batch, seq_len, self.d_out)
+        # NOTE - transpose(1, 2) is the same as view(batch, seq_len, self.num_heads, self.head_dims)
+        # NOTE - contiguous() is necessary to ensure the tensor is contiguous in memory; transpose() does not guarantee contiguousness; and view() will use contiguous memory to fill.
+        # NOTE - view(batch, seq_len, self.d_out) is the same as view(batch, seq_len, self.num_heads * self.head_dims)
+        ctx_vec = ctx_vec.transpose(1, 2).contiguous().view(batch, seq_len, self.d_out)
 
         ctx_vec = self.out_proj(ctx_vec)
-        return ctx_vec
+        return ctx_vec # (b x seq x d_out)
 
-
-# TODO next (finished @ pg 91)
-# 1) Make sure my shortcut (direct to num_heads view) actually worked (run the whole thing e2e)
-# 2) Make sure the sizes are all correct throughout (print)
-# 3) Understand what is happening in the whole contiguious() section, and whether the 2-step pipeline is necessary at all or just for show.
-# 4) Play around with torch.view / matmuls separately (load bearing for final understanding)
+# TODO as a follow-up - 
+# Play around with torch.view / matmuls/contiguous() separately (load bearing for final understanding)
 
 if __name__ == "__main__":
     torch.manual_seed(123)
@@ -312,3 +312,11 @@ if __name__ == "__main__":
 
     mha_out_2d = mha(inputs_2d)  # 500 X 1600
     print(f"MHA Out Shape: {mha_out_2d.shape}")
+
+
+    mha_2 = MultiHeadedAttention(IN_DIM, OUT_DIM, SEQ_LEN, 0.2, 8)
+    mha_2_out = mha_2(inputs_3d)
+    print(f"MHA 2 Output Shape: {mha_2_out.shape}")
+
+    mha_2_out_3d = mha_2(inputs_3d)
+    print(f"MHA 2 Output Shape 3d: {mha_2_out_3d.shape}")
