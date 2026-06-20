@@ -222,7 +222,7 @@ class MultiHeadedAttention(nn.Module):
         batch, seq_len, d_in = x.shape
 
         # Now expand the inner dim into num_heads separate;
-        queries = queries.view(batch, seq_len, self.num_heads, , self.head_dims).transpose(1, 2)
+        queries = queries.view(batch, seq_len, self.num_heads, self.head_dims).transpose(1, 2)
         keys = keys.view(batch, seq_len, self.num_heads, self.head_dims).transpose(1, 2)
         values = values.view(batch, seq_len, self.num_heads, self.head_dims).transpose(1, 2) 
 
@@ -320,3 +320,34 @@ if __name__ == "__main__":
 
     mha_2_out_3d = mha_2(inputs_3d)
     print(f"MHA 2 Output Shape 3d: {mha_2_out_3d.shape}")
+
+
+
+    # Ex 3.3 -> massive GPT-size
+    CTX_LEN = 1024
+    MODEL_DIM = 768
+    NUM_HEADS = 12
+    
+
+    mha_gpt2 = MultiHeadedAttention(
+        d_in=MODEL_DIM,
+        d_out=MODEL_DIM,
+        ctx_len=CTX_LEN,
+        dropout=0.1,
+        num_heads=12,
+    )
+
+
+    input_huge = torch.rand(20, CTX_LEN, MODEL_DIM)
+
+
+    # I don't have gpu; let's see how long single forward pass takes?
+
+    import time
+    start_time = time.time()
+    output_huge = mha_gpt2(input_huge)
+    end_time = time.time()
+
+    print(f"GPT-2 Size {input_huge.shape} fwd pass took {(end_time - start_time) / 1000}s.")
+
+    # Maybe another TODO; how many FLOPs per attn head based on params?
