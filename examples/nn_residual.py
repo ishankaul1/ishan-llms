@@ -76,3 +76,6 @@ model_with_shortcut = ExampleDeepNeuralNetwork(
 layer_sizes, use_shortcut=True
 )
 print_grads(model_with_shortcut, sample_input)
+
+# NOTE -- continue with 4.6 Transformer block
+# Question to ask; why LayerNorm _and_ residual both needed for exploding/vanishing
