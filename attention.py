@@ -179,7 +179,7 @@ class MultiHeadAttentionWrapper(nn.Module):
 # TODO - Rascka gives you MHA for free; do it yourself without looking!
 
 
-class MultiHeadedAttention(nn.Module):
+class MultiHeadAttention(nn.Module):
     def __init__(self, d_in, d_out, ctx_len, dropout, num_heads, kqv_bias=False):
         super().__init__()
 
@@ -329,7 +329,7 @@ if __name__ == "__main__":
     NUM_HEADS = 12
     
 
-    mha_gpt2 = MultiHeadedAttention(
+    mha_gpt2 = MultiHeadAttention(
         d_in=MODEL_DIM,
         d_out=MODEL_DIM,
         ctx_len=CTX_LEN,

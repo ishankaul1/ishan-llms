@@ -1,33 +1,52 @@
 import torch
 import torch.nn as nn
 from dataclasses import dataclass
+from layer_norm import LayerNorm
+
 
 from config import GPTConfig
 
+from attention import MultiHeadAttention
+from feed_forward import FeedForward
 
-
-GPT_CONFIG_124M = GPTConfig()
-
-
-class DummyTransformerBlock(nn.Module):
+class TransformerBlock(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
 
+        self.att = MultiHeadAttention(
+            d_in=cfg.emb_dim,
+            d_out=cfg.emb_dim,
+            ctx_len=cfg.context_length,
+            num_heads=cfg.n_heads,
+            dropout=cfg.drop_rate,
+            kqv_bias=cfg.qkv_bias
+        )
+
+        self.ff = FeedForward(cfg)
+        self.norm1 = LayerNorm(emb_dim=cfg.emb_dim)
+        self.norm2 = LayerNorm(emb_dim=cfg.emb_dim)
+
+        self.drop_shortcut = nn.Dropout(cfg.drop_rate)
+
+
     def forward(self, x):
+        shortcut = x
+        x = self.norm1(x)
+        x = self.att(x)
+        x = self.drop_shortcut(x)
+        x = x + shortcut
+
+        shortcut = x
+        # NOTE - why does norm after lead to worse training dynamics? Just empirical or a real reaason?
+        x = self.norm2(x)
+        x = self.ff(x)
+        x = self.drop_shortcut(x)
+        x = x + shortcut
         return x
 
-
-class DummyLayerNorm(nn.Module):
-    def __init__(self, normalized_shape, eps=1e-5):
-        super().__init__()
-
-    def forward(self, x):
-        return x
-
-
-class DummyGPTModel(nn.Module):
+class GPTModel(nn.Module):
     def __init__(self, cfg: GPTConfig):
-        super().__init__ ()
+        super().__init__()
 
         # Mapping from tok id -> trained embedding vec
         self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.emb_dim)
@@ -43,16 +62,17 @@ class DummyGPTModel(nn.Module):
 
         # Actual blocks
         self.trf_blocks = nn.Sequential(
-            *[DummyTransformerBlock(cfg) for _ in range(cfg.n_layers)]
+            *[TransformerBlock(cfg) for _ in range(cfg.n_layers)]
         )
 
-        self.final_norm = DummyLayerNorm(cfg.emb_dim)
+        self.final_norm = LayerNorm(cfg.emb_dim)
 
         # Final one -- take each activation & produce a number per token
         # This represents the models 'output distribution' on what to say next?
-        self.out_head = nn.Linear(
-            cfg.emb_dim, cfg.vocab_size, bias=False
-        )
+        
+        # NOTE -- actual original GPT-2 just reuses the token emb layer!
+        # But Raschka says it is strictly worse so we will skip.
+        self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
     def forward(self, in_idx):
         # NOTE -- assumes already tokenized. Eg B x S token ids
@@ -73,10 +93,20 @@ class DummyGPTModel(nn.Module):
         return logits
 
 
-
-
 import tiktoken
 
+GPT_CONFIG_124M = GPTConfig()
+
+print("Block")
+x = torch.rand(2, 4, 768)
+block = TransformerBlock(GPT_CONFIG_124M)
+output = block(x)
+
+print("Input shape:", x.shape)
+print("Output shape:", output.shape)
+
+
+print("/n/nGPT:")
 tokenizer = tiktoken.get_encoding("gpt2")
 
 batch = []
@@ -94,14 +124,19 @@ print("batch", batch)
 
 torch.manual_seed(123)
 
-model = DummyGPTModel(GPT_CONFIG_124M)
+model = GPTModel(GPT_CONFIG_124M)
 
 logits = model(batch)
 print("Output shape", logits.shape)
 print(logits)
 
-# NOTE -- ouptut shape is [2, 4, vocab]
-# Does not predict "next token" in this case -- just literally gives you a number for each position 
-# for each batch
 
-# Next -- 4.2 Normalizing Activations with LayerNorm
+total_params = sum(p.numel() for p in model.parameters())
+print(f"Total parms: {total_params}")
+
+print("For fun -- Named params!")
+for name, param in model.named_parameters():
+    print(f"{name:<50} -> {list(param.shape)}")
+
+
+# CONTINUE FROM pg 121 Exercise 4.1!!
