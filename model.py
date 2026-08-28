@@ -70,8 +70,8 @@ class GPTModel(nn.Module):
         # Final one -- take each activation & produce a number per token
         # This represents the models 'output distribution' on what to say next?
         
-        # NOTE -- actual original GPT-2 just reuses the token emb layer!
-        # But Raschka says it is strictly worse so we will skip.
+        # NOTE -- actual original GPT-2 just reuses the token emb layer (weight tying)!
+        # But Raschka says it is strictly worse on training performance so we will skip.
         self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
     def forward(self, in_idx):
@@ -139,4 +139,44 @@ for name, param in model.named_parameters():
     print(f"{name:<50} -> {list(param.shape)}")
 
 
-# CONTINUE FROM pg 121 Exercise 4.1!!
+"""
+Exercise 4.1:
+
+"Calculate and compare # parameters in the feed fwd vs multi head attn modules"
+
+class GPTConfig:
+    vocab_size: int = 50257  # Vocabulary size (equivalent to BPE tokenizer words)
+    context_length: int = 1024  # Context length
+    emb_dim: int = 768  # Embedding dimension
+    n_heads: int = 12  # Number of attention heads
+    n_layers: int = 12  # Number of layers
+    drop_rate: float = 0.1  # Dropout rate
+    qkv_bias: bool = False  # Query-Key-Value bias
+
+_ per layer_:
+
+ATTN:
+3 x emb_dim * emb_dim trainable params
+= 3 x 768^2 = 1.769 million
+
+(if you consider out_proj):
+    768^2 * 4 -> 2.4m
+
+MLP:
+(768 * 768 * 4 * 2) = 4.719 million
+
+
+Total:
+Attn: ~21-22m params; 28 including out_proj
+MLP: ~56m params
+
+
+Now for rest of breakdown estimate:
+
+ = emb_dim * vocab_size;
+768 * 50257 = ~40m
+* 2 if not reusing tok_emb; 80m;
+
+Adds up to ~120-160; just as Raschka said!!
+
+"""
