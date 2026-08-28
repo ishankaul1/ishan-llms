@@ -130,6 +130,7 @@ logits = model(batch)
 print("Output shape", logits.shape)
 print(logits)
 
+# --- Param Counts ----
 
 total_params = sum(p.numel() for p in model.parameters())
 print(f"Total parms: {total_params}")
@@ -180,3 +181,14 @@ Now for rest of breakdown estimate:
 Adds up to ~120-160; just as Raschka said!!
 
 """
+
+# --- Memory --- 
+
+total_size_bytes = total_params * 4 # assume fp32
+total_size_mb = total_size_bytes / (1024 **2)
+
+print(f"Total size of the model: {total_size_mb:.2f} MB")
+
+
+# CONTINUE: Ex 4.2 Bigger model & attribution
+# And -- 4.7 generation :) 
