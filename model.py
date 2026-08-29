@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from dataclasses import dataclass
 from layer_norm import LayerNorm
 
 
@@ -93,102 +92,171 @@ class GPTModel(nn.Module):
         return logits
 
 
-import tiktoken
-
-GPT_CONFIG_124M = GPTConfig()
-
-print("Block")
-x = torch.rand(2, 4, 768)
-block = TransformerBlock(GPT_CONFIG_124M)
-output = block(x)
-
-print("Input shape:", x.shape)
-print("Output shape:", output.shape)
+    def total_param_count(self) -> int:
+        # TODO -- breakdown count would be an interesting pytorch/coding exercise
+        # Use named params & map to buckets, _or_ just iterate through known model internals
+        return sum(p.numel() for p in self.parameters())
 
 
-print("/n/nGPT:")
-tokenizer = tiktoken.get_encoding("gpt2")
+if __name__ == "__main__":
+    import tiktoken
 
-batch = []
-txt1 = "Every effort moves you"
-txt2 = "Every day holds a"
+    GPT_CONFIG_124M = GPTConfig()
 
-# Note -- super brittle; would have to fill to context length probably
-# And at this point im pretty sure that's what you need to predict the next token as well yea?
-batch.append(torch.tensor(tokenizer.encode(txt1)))
-batch.append(torch.tensor(tokenizer.encode(txt2)))
+    print("Block")
+    x = torch.rand(2, 4, 768)
+    block = TransformerBlock(GPT_CONFIG_124M)
+    output = block(x)
 
-
-batch = torch.stack(batch, dim=0)
-print("batch", batch)
-
-torch.manual_seed(123)
-
-model = GPTModel(GPT_CONFIG_124M)
-
-logits = model(batch)
-print("Output shape", logits.shape)
-print(logits)
-
-# --- Param Counts ----
-
-total_params = sum(p.numel() for p in model.parameters())
-print(f"Total parms: {total_params}")
-
-print("For fun -- Named params!")
-for name, param in model.named_parameters():
-    print(f"{name:<50} -> {list(param.shape)}")
+    print("Input shape:", x.shape)
+    print("Output shape:", output.shape)
 
 
-"""
-Exercise 4.1:
+    print("/n/nGPT:")
+    tokenizer = tiktoken.get_encoding("gpt2")
 
-"Calculate and compare # parameters in the feed fwd vs multi head attn modules"
+    batch = []
+    txt1 = "Every effort moves you"
+    txt2 = "Every day holds a"
 
-class GPTConfig:
-    vocab_size: int = 50257  # Vocabulary size (equivalent to BPE tokenizer words)
-    context_length: int = 1024  # Context length
-    emb_dim: int = 768  # Embedding dimension
-    n_heads: int = 12  # Number of attention heads
-    n_layers: int = 12  # Number of layers
-    drop_rate: float = 0.1  # Dropout rate
-    qkv_bias: bool = False  # Query-Key-Value bias
-
-_ per layer_:
-
-ATTN:
-3 x emb_dim * emb_dim trainable params
-= 3 x 768^2 = 1.769 million
-
-(if you consider out_proj):
-    768^2 * 4 -> 2.4m
-
-MLP:
-(768 * 768 * 4 * 2) = 4.719 million
+    # Note -- super brittle; would have to fill to context length probably
+    # And at this point im pretty sure that's what you need to predict the next token as well yea?
+    batch.append(torch.tensor(tokenizer.encode(txt1)))
+    batch.append(torch.tensor(tokenizer.encode(txt2)))
 
 
-Total:
-Attn: ~21-22m params; 28 including out_proj
-MLP: ~56m params
+    batch = torch.stack(batch, dim=0)
+    print("batch", batch)
+
+    torch.manual_seed(123)
+
+    model = GPTModel(GPT_CONFIG_124M)
+
+    logits = model(batch)
+    print("Output shape", logits.shape)
+    print(logits)
+
+    # --- Param Counts ----
+
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total parms: {total_params}")
+
+    print("For fun -- Named params!")
+    for name, param in model.named_parameters():
+        print(f"{name:<50} -> {list(param.shape)}")
 
 
-Now for rest of breakdown estimate:
+    """
+    Exercise 4.1:
 
- = emb_dim * vocab_size;
-768 * 50257 = ~40m
-* 2 if not reusing tok_emb; 80m;
+    "Calculate and compare # parameters in the feed fwd vs multi head attn modules"
 
-Adds up to ~120-160; just as Raschka said!!
+    class GPTConfig:
+        vocab_size: int = 50257  # Vocabulary size (equivalent to BPE tokenizer words)
+        context_length: int = 1024  # Context length
+        emb_dim: int = 768  # Embedding dimension
+        n_heads: int = 12  # Number of attention heads
+        n_layers: int = 12  # Number of layers
+        drop_rate: float = 0.1  # Dropout rate
+        qkv_bias: bool = False  # Query-Key-Value bias
 
-"""
+    _ per layer_:
 
-# --- Memory --- 
+    ATTN:
+    3 x emb_dim * emb_dim trainable params
+    = 3 x 768^2 = 1.769 million
 
-total_size_bytes = total_params * 4 # assume fp32
-total_size_mb = total_size_bytes / (1024 **2)
+    (if you consider out_proj):
+        768^2 * 4 -> 2.4m
 
-print(f"Total size of the model: {total_size_mb:.2f} MB")
+    MLP:
+    (768 * 768 * 4 * 2) = 4.719 million
 
 
-# CONTINUE: Ex 4.2 Bigger model & attribution
-# And -- 4.7 generation :) 
+    Total:
+    Attn: ~21-22m params; 28 including out_proj
+    MLP: ~56m params
+
+
+    Now for rest of breakdown estimate:
+
+     = emb_dim * vocab_size;
+    768 * 50257 = ~40m
+    * 2 if not reusing tok_emb; 80m;
+
+    Adds up to ~120-160; just as Raschka said!!
+
+    """
+
+    # --- Memory ---
+
+    total_size_bytes = total_params * 4 # assume fp32
+    total_size_mb = total_size_bytes / (1024 **2)
+
+    print(f"Total size of the model: {total_size_mb:.2f} MB")
+
+
+    # CONTINUE: Ex 4.2 Bigger model & attribution
+    # And -- 4.7 generation :)
+
+    """
+    Ex 4.2 -- GPT 2 Medium, Large, and XL
+
+    Medium -- 1024 embed, 24 layers, 16 heads
+
+    Large -- 1280 emb dim, 36 block, 20 mh
+
+    XL -- 1600, 48, 25
+    """
+
+
+    """
+    Generic Sizing Forumla:
+
+    Attn_params = 4 * D^2 * L
+    MLP_Params = (D * 4D) * 2 = 8D^2 * L
+    Tok_out_parms = 2 * D * V
+
+    (v = vocab size)
+    """
+
+
+    # GPT 2 Medium
+
+    config_m = GPTConfig(emb_dim=1024, n_layers=24, n_heads = 12)
+
+    """
+    Total Size:
+
+    4 * 1024^2 * 24 attn ~= 100m
+    8 * 1024^2 * 24 mlp ~= 200m
+    2 * 1024 * 50000 in/out head ~= 100m
+
+    ~= 400m
+
+    # Exact answer --  406212608 (yay!)
+    """
+
+    model_m = GPTModel(config_m)
+    print(f"GPT Medium Param Count: {model_m.total_param_count()} ")
+
+    # GPT 2 L
+    # 1280 emb, 36 L, 20 h
+
+    config_l = GPTConfig(emb_dim=1280, n_layers=36, n_heads=20)
+
+    model_l = GPTModel(config_l)
+    print(f"GPT Large Param Count: {model_l.total_param_count()} ")
+
+    # GPT 2 XL
+    # 1600 emb, 48 L, 25 h
+
+    config_xl = GPTConfig(emb_dim=1600, n_layers=48, n_heads=25)
+
+    model_xl = GPTModel(config_xl)
+    print(f"GPT XL Param Count: {model_xl.total_param_count()} ")
+
+    # Overall formula to keep: Transformer parmas generally scale as
+    # 12 D^2L + 2DV; D is the major factor in param scale
+
+    # n_heads are just a reshape

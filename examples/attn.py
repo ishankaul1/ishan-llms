@@ -7,10 +7,6 @@ import torch
 CTX_LEN = 6
 NUM_DIMS = 3
 
-inputs = torch.rand(CTX_LEN, NUM_DIMS)
-# 6 tokens embed dim 3
-print(f"INPUTS:\n{inputs}")
-
 
 """
 Part 1: Compute the "context vector" for a single token position
@@ -203,8 +199,12 @@ def _repro_softmax_scale(num_keys: int = 8, seed: int = 42):
 
 
 
-_run_trainable_weights(inputs)
-
 if __name__ == "__main__":
+    inputs = torch.rand(CTX_LEN, NUM_DIMS)
+    # 6 tokens embed dim 3
+    print(f"INPUTS:\n{inputs}")
+
+    _run_trainable_weights(inputs)
+
     print("\n--- softmax scale repro ---")
     _repro_softmax_scale()

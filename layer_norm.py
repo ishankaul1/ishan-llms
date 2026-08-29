@@ -1,35 +1,6 @@
 import torch
 from torch import nn
 
-# Example
-torch.manual_seed(123)
-
-batch_example = torch.randn(2, 5)
-# NOTE -- RELU just sets all negative inputs to 0.
-layer = nn.Sequential(nn.Linear(5, 6), nn.ReLU())
-out = layer(batch_example)
-
-# NOTE -- an insight is that the output of ReLU by nature almost never has a mean 0 / 
-# is always imbalanced positive since you 0 all negatives
-
-print(out)
-
-# NOTE - keepdim jsut keeps it as 2 x 1 instead of just making it 2,
-mean = out.mean(dim=-1, keepdim=True)
-var = out.var(dim=-1, keepdim=True)
-
-print("Mean:\n", mean)
-print("Variance:\n", var)
-
-out_norm = (out - mean) / torch.sqrt(var)
-mean = out_norm.mean(dim=-1, keepdim=True)
-var = out_norm.var(dim=-1, keepdim=True)
-
-
-print("Normalized layer outputs:\n", out_norm)
-print("Mean:\n", mean)
-print("Variance:\n", var)
-
 
 class LayerNorm(nn.Module):
     def __init__(self, emb_dim):
@@ -64,14 +35,43 @@ class LayerNorm(nn.Module):
         return self.scale * norm_x + self.shift
 
 
+if __name__ == "__main__":
+    # Example
+    torch.manual_seed(123)
 
-ln = LayerNorm(emb_dim = 6)
-out_ln = ln(out)
+    batch_example = torch.randn(2, 5)
+    # NOTE -- RELU just sets all negative inputs to 0.
+    layer = nn.Sequential(nn.Linear(5, 6), nn.ReLU())
+    out = layer(batch_example)
 
-mean = out_ln.mean(dim=-1, keepdim=True)
-var = out_ln.var(dim=-1, unbiased=False, keepdim=True)
-print("Mean:\n", mean)
-print("Variance:\n", var)
+    # NOTE -- an insight is that the output of ReLU by nature almost never has a mean 0 / 
+    # is always imbalanced positive since you 0 all negatives
+
+    print(out)
+
+    # NOTE - keepdim jsut keeps it as 2 x 1 instead of just making it 2,
+    mean = out.mean(dim=-1, keepdim=True)
+    var = out.var(dim=-1, keepdim=True)
+
+    print("Mean:\n", mean)
+    print("Variance:\n", var)
+
+    out_norm = (out - mean) / torch.sqrt(var)
+    mean = out_norm.mean(dim=-1, keepdim=True)
+    var = out_norm.var(dim=-1, keepdim=True)
 
 
-# Next -- Implement feed forward with GELU
+    print("Normalized layer outputs:\n", out_norm)
+    print("Mean:\n", mean)
+    print("Variance:\n", var)
+
+    ln = LayerNorm(emb_dim = 6)
+    out_ln = ln(out)
+
+    mean = out_ln.mean(dim=-1, keepdim=True)
+    var = out_ln.var(dim=-1, unbiased=False, keepdim=True)
+    print("Mean:\n", mean)
+    print("Variance:\n", var)
+
+
+    # Next -- Implement feed forward with GELU

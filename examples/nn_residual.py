@@ -50,15 +50,6 @@ class ExampleDeepNeuralNetwork(nn.Module):
         return x
 
 
-    
-
-layer_sizes = [3, 3, 3, 3, 3, 1]
-sample_input = torch.tensor([1., 0., -1.])
-torch.manual_seed(123)
-model_wo_short = ExampleDeepNeuralNetwork(
-    layer_sizes, use_shortcut=False
-)
-
 def print_grads(model, x):
     output = model(x)
     target = torch.tensor([[0.]])
@@ -69,13 +60,22 @@ def print_grads(model, x):
         if 'weight' in name:
             print(f"{name} has gradient mean of {param.grad.abs().mean().item()}")
 
-print_grads(model_wo_short, sample_input)
 
-torch.manual_seed(123)
-model_with_shortcut = ExampleDeepNeuralNetwork(
-layer_sizes, use_shortcut=True
-)
-print_grads(model_with_shortcut, sample_input)
+if __name__ == "__main__":
+    layer_sizes = [3, 3, 3, 3, 3, 1]
+    sample_input = torch.tensor([1., 0., -1.])
+    torch.manual_seed(123)
+    model_wo_short = ExampleDeepNeuralNetwork(
+        layer_sizes, use_shortcut=False
+    )
 
-# NOTE -- continue with 4.6 Transformer block
-# Question to ask; why LayerNorm _and_ residual both needed for exploding/vanishing
+    print_grads(model_wo_short, sample_input)
+
+    torch.manual_seed(123)
+    model_with_shortcut = ExampleDeepNeuralNetwork(
+        layer_sizes, use_shortcut=True
+    )
+    print_grads(model_with_shortcut, sample_input)
+
+    # NOTE -- continue with 4.6 Transformer block
+    # Question to ask; why LayerNorm _and_ residual both needed for exploding/vanishing
