@@ -47,6 +47,8 @@ class GPTModel(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
 
+        self.cfg = cfg # just keep it around for utility
+
         # Mapping from tok id -> trained embedding vec
         self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.emb_dim)
 
@@ -96,6 +98,34 @@ class GPTModel(nn.Module):
         # TODO -- breakdown count would be an interesting pytorch/coding exercise
         # Use named params & map to buckets, _or_ just iterate through known model internals
         return sum(p.numel() for p in self.parameters())
+
+
+    def generate_text_simple(self, idx: torch.Tensor, max_new_tokens: int, context_size: int) -> torch.Tensor:
+        # NOTE -- idx is B x Seq tensor of token ids
+
+        # TODO -- this assumes batches are all completed together and are running on/predicting the
+        # same token pos; how would I alter for continuous batching?
+        for _ in range(max_new_tokens):
+            idx_cond = idx[:, -context_size:] # Sliding window -- only take last ctx_size tokens on the 2nd dim
+            with torch.no_grad():
+                logits = self.forward(idx_cond)
+
+            # Logits is now B x S X Vocab
+            logits = logits[:, -1, :] # Pluck the _last column_ off.
+
+            # NOTE -- the model is always predicting the next token's logits _at_ the position of the token preceding it;
+            # EG -- if you're predicting token #4; you're getting the value off the 3rd position;
+
+            # Training works the same way too, you use the next position as the target for the previous position's loss.
+            # You do _not_ need a padding token slot to make a prediction on top off -- I was confused about this before
+
+            probs = torch.softmax(logits, dim=-1)
+            idx_next = torch.argmax(probs, dim=-1, keepdim=True)
+            idx = torch.cat((idx, idx_next), dim=-1)
+
+        return idx
+
+
 
 
 if __name__ == "__main__":
@@ -260,3 +290,37 @@ if __name__ == "__main__":
     # 12 D^2L + 2DV; D is the major factor in param scale
 
     # n_heads are just a reshape
+
+
+
+    # ---- Generation ----
+
+
+    print("\n\n----Simple Generation-----")
+    
+    start_context = "Hello, I am"
+    encoded = tokenizer.encode(start_context)
+    print(f"Encoded: {encoded}")
+
+    # Unsqueeze adds batch dim
+    encoded_tensor = torch.tensor(encoded).unsqueeze(0)
+    print("encoded_tensor.shape:", encoded_tensor.shape)
+
+    model.eval() # Turn off dropout, and other "random" components. QUESTION -- what other ones are there?
+    generate_output = model.generate_text_simple(idx=encoded_tensor, max_new_tokens=6, context_size=model.cfg.context_length)
+
+    print("generate output", generate_output)
+    print("output length", generate_output.shape[-1])
+
+    decoded_text = tokenizer.decode_batch(generate_output.tolist())
+    print("decoded text: ", decoded_text)
+
+    # Lol -- model said 'Hello, I am Feature IT snowballProtect youngstersMu"
+    # To check -- is it stable? Or is it different gib every time?
+
+
+    """
+    Continue from Ex 4.3 -- Using separate dropouts. Then on to chapter 5!!!
+    """
+
+
