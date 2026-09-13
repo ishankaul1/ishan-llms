@@ -8,6 +8,7 @@ from config import GPTConfig
 from attention import MultiHeadAttention
 from feed_forward import FeedForward
 
+
 class TransformerBlock(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
@@ -17,16 +18,15 @@ class TransformerBlock(nn.Module):
             d_out=cfg.emb_dim,
             ctx_len=cfg.context_length,
             num_heads=cfg.n_heads,
-            dropout=cfg.drop_rate,
-            kqv_bias=cfg.qkv_bias
+            dropout=cfg.drop_config.attn_drop,
+            kqv_bias=cfg.qkv_bias,
         )
 
         self.ff = FeedForward(cfg)
         self.norm1 = LayerNorm(emb_dim=cfg.emb_dim)
         self.norm2 = LayerNorm(emb_dim=cfg.emb_dim)
 
-        self.drop_shortcut = nn.Dropout(cfg.drop_rate)
-
+        self.drop_shortcut = nn.Dropout(cfg.drop_config.shortcut_drop)
 
     def forward(self, x):
         shortcut = x
@@ -43,11 +43,12 @@ class TransformerBlock(nn.Module):
         x = x + shortcut
         return x
 
+
 class GPTModel(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
 
-        self.cfg = cfg # just keep it around for utility
+        self.cfg = cfg  # just keep it around for utility
 
         # Mapping from tok id -> trained embedding vec
         self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.emb_dim)
@@ -59,7 +60,7 @@ class GPTModel(nn.Module):
 
         # QUESTION - Why is it an emb?
         # Answered later I think -- it is not; jsut apply dropout to the embeddings themselves
-        self.drop_emb = nn.Dropout(cfg.drop_rate)
+        self.drop_emb = nn.Dropout(cfg.drop_config.emb_drop)
 
         # Actual blocks
         self.trf_blocks = nn.Sequential(
@@ -70,7 +71,7 @@ class GPTModel(nn.Module):
 
         # Final one -- take each activation & produce a number per token
         # This represents the models 'output distribution' on what to say next?
-        
+
         # NOTE -- actual original GPT-2 just reuses the token emb layer (weight tying)!
         # But Raschka says it is strictly worse on training performance so we will skip.
         self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
@@ -93,28 +94,32 @@ class GPTModel(nn.Module):
 
         return logits
 
-
     def total_param_count(self) -> int:
         # TODO -- breakdown count would be an interesting pytorch/coding exercise
         # Use named params & map to buckets, _or_ just iterate through known model internals
         return sum(p.numel() for p in self.parameters())
 
-
-    def generate_text_simple(self, idx: torch.Tensor, max_new_tokens: int, context_size: int) -> torch.Tensor:
+    def generate_text_simple(
+        self, idx: torch.Tensor, max_new_tokens: int, context_size: int
+    ) -> torch.Tensor:
         # NOTE -- idx is B x Seq tensor of token ids
 
         # TODO -- this assumes batches are all completed together and are running on/predicting the
         # same token pos; how would I alter for continuous batching?
         for _ in range(max_new_tokens):
-            idx_cond = idx[:, -context_size:] # Sliding window -- only take last ctx_size tokens on the 2nd dim
+            idx_cond = idx[
+                :, -context_size:
+            ]  # Sliding window -- only take last ctx_size tokens on the 2nd dim
             with torch.no_grad():
                 logits = self.forward(idx_cond)
 
             # Logits is now B x S X Vocab
-            logits = logits[:, -1, :] # Pluck the _last column_ off.
+            logits = logits[:, -1, :]  # Pluck the _last column_ off.
 
             # NOTE -- the model is always predicting the next token's logits _at_ the position of the token preceding it;
             # EG -- if you're predicting token #4; you're getting the value off the 3rd position;
+
+            # This is why you can just use the current seq & pluck the last token off.
 
             # Training works the same way too, you use the next position as the target for the previous position's loss.
             # You do _not_ need a padding token slot to make a prediction on top off -- I was confused about this before
@@ -124,8 +129,6 @@ class GPTModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=-1)
 
         return idx
-
-
 
 
 if __name__ == "__main__":
@@ -141,7 +144,6 @@ if __name__ == "__main__":
     print("Input shape:", x.shape)
     print("Output shape:", output.shape)
 
-
     print("/n/nGPT:")
     tokenizer = tiktoken.get_encoding("gpt2")
 
@@ -153,7 +155,6 @@ if __name__ == "__main__":
     # And at this point im pretty sure that's what you need to predict the next token as well yea?
     batch.append(torch.tensor(tokenizer.encode(txt1)))
     batch.append(torch.tensor(tokenizer.encode(txt2)))
-
 
     batch = torch.stack(batch, dim=0)
     print("batch", batch)
@@ -174,7 +175,6 @@ if __name__ == "__main__":
     print("For fun -- Named params!")
     for name, param in model.named_parameters():
         print(f"{name:<50} -> {list(param.shape)}")
-
 
     """
     Exercise 4.1:
@@ -220,11 +220,10 @@ if __name__ == "__main__":
 
     # --- Memory ---
 
-    total_size_bytes = total_params * 4 # assume fp32
-    total_size_mb = total_size_bytes / (1024 **2)
+    total_size_bytes = total_params * 4  # assume fp32
+    total_size_mb = total_size_bytes / (1024**2)
 
     print(f"Total size of the model: {total_size_mb:.2f} MB")
-
 
     # CONTINUE: Ex 4.2 Bigger model & attribution
     # And -- 4.7 generation :)
@@ -239,7 +238,6 @@ if __name__ == "__main__":
     XL -- 1600, 48, 25
     """
 
-
     """
     Generic Sizing Forumla:
 
@@ -250,10 +248,9 @@ if __name__ == "__main__":
     (v = vocab size)
     """
 
-
     # GPT 2 Medium
 
-    config_m = GPTConfig(emb_dim=1024, n_layers=24, n_heads = 12)
+    config_m = GPTConfig(emb_dim=1024, n_layers=24, n_heads=12)
 
     """
     Total Size:
@@ -291,13 +288,10 @@ if __name__ == "__main__":
 
     # n_heads are just a reshape
 
-
-
     # ---- Generation ----
 
-
     print("\n\n----Simple Generation-----")
-    
+
     start_context = "Hello, I am"
     encoded = tokenizer.encode(start_context)
     print(f"Encoded: {encoded}")
@@ -306,8 +300,10 @@ if __name__ == "__main__":
     encoded_tensor = torch.tensor(encoded).unsqueeze(0)
     print("encoded_tensor.shape:", encoded_tensor.shape)
 
-    model.eval() # Turn off dropout, and other "random" components. QUESTION -- what other ones are there?
-    generate_output = model.generate_text_simple(idx=encoded_tensor, max_new_tokens=6, context_size=model.cfg.context_length)
+    model.eval()  # Turn off dropout, and other "random" components. QUESTION -- what other ones are there?
+    generate_output = model.generate_text_simple(
+        idx=encoded_tensor, max_new_tokens=6, context_size=model.cfg.context_length
+    )
 
     print("generate output", generate_output)
     print("output length", generate_output.shape[-1])
@@ -318,9 +314,6 @@ if __name__ == "__main__":
     # Lol -- model said 'Hello, I am Feature IT snowballProtect youngstersMu"
     # To check -- is it stable? Or is it different gib every time?
 
-
     """
     Continue from Ex 4.3 -- Using separate dropouts. Then on to chapter 5!!!
     """
-
-

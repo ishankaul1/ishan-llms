@@ -1,4 +1,16 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class DropoutConfig:
+    attn_drop: float = 0.1
+    shortcut_drop: float = 0.1
+    emb_drop: float = 0.1
+
+    @classmethod
+    def uniform(cls, rate: float = 0.1) -> "DropoutConfig":
+        return cls(attn_drop=rate, shortcut_drop=rate, emb_drop=rate)
+
 
 @dataclass
 class GPTConfig:
@@ -7,5 +19,5 @@ class GPTConfig:
     emb_dim: int = 768  # Embedding dimension
     n_heads: int = 12  # Number of attention heads
     n_layers: int = 12  # Number of layers
-    drop_rate: float = 0.1  # Dropout rate
+    drop_config: DropoutConfig = field(default_factory=DropoutConfig)
     qkv_bias: bool = False  # Query-Key-Value bias

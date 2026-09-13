@@ -191,7 +191,6 @@ class MultiHeadAttention(nn.Module):
         self.d_out = d_out
         self.ctx_len = ctx_len
 
-        self.dropout = dropout
         self.num_heads = num_heads
         self.kqv_bias = kqv_bias
 
@@ -236,12 +235,13 @@ class MultiHeadAttention(nn.Module):
 
         mask_bool = self.mask.bool()[:seq_len, :seq_len]
 
-        attn_scores.masked_fill(mask_bool, -torch.inf)
+        attn_scores.masked_fill_(mask_bool, -torch.inf)
 
         # Softmax
 
         attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
         # (b x nh x seq x seq)
+        attn_weights = self.dropout(attn_weights)
 
         # Context vector from values
         ctx_vec = attn_weights @ values
