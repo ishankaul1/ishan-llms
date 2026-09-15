@@ -12,9 +12,11 @@ class GPTDatasetV1(Dataset):
         token_ids = tokenizer.encode(txt)
 
         # Generate input -> output tensors
+        # NOTE - these can be passed as-is to model() and validated against target.
+        # Target is shifted one up, so prediction at that postion aligns directly with the next token,
+        # which is how we have built this dataset
 
-        # NOTE - he doesn't preprocess/unroll them. Only returns x->y tensors. Why?
-        # Will he just unroll in the train loop?
+        # TODO -- for large scale datasets, do you have to cache/discard them on disk/in-mem?
         for i_start in range(0, len(token_ids) - max_length, stride):
             input_chunk = token_ids[i_start : i_start + max_length]
             target_chunk = token_ids[i_start + 1 : i_start + max_length + 1]

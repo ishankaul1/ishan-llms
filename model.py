@@ -130,11 +130,11 @@ class GPTModel(nn.Module):
 
         return idx
 
+GPT_CONFIG_124M = GPTConfig()
 
 if __name__ == "__main__":
     import tiktoken
 
-    GPT_CONFIG_124M = GPTConfig()
 
     print("Block")
     x = torch.rand(2, 4, 768)
