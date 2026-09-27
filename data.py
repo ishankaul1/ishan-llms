@@ -3,10 +3,16 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 
-class GPTDatasetV1(Dataset):
-    def __init__(self, txt, tokenizer, max_length, stride):
-        self.input_ids = []
-        self.target_ids = []
+class GPTDatasetV1(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    def __init__(
+        self,
+        txt: str,
+        tokenizer: tiktoken.Encoding,
+        max_length: int,
+        stride: int,
+    ) -> None:
+        self.input_ids: list[torch.Tensor] = []
+        self.target_ids: list[torch.Tensor] = []
 
         # First, tokenize the text fully
         token_ids = tokenizer.encode(txt)
@@ -24,22 +30,22 @@ class GPTDatasetV1(Dataset):
             self.input_ids.append(torch.tensor(input_chunk))
             self.target_ids.append(torch.tensor(target_chunk))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.input_ids)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         return self.input_ids[idx], self.target_ids[idx]
 
 
 def create_dataloader_v1(
-    txt,
-    batch_size=4,
-    max_length=256,
-    stride=128,
-    shuffle=True,
-    drop_last=True,
-    num_workers=0,
-) -> DataLoader:
+    txt: str,
+    batch_size: int = 4,
+    max_length: int = 256,
+    stride: int = 128,
+    shuffle: bool = True,
+    drop_last: bool = True,
+    num_workers: int = 0,
+) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
 
     tokenizer = tiktoken.get_encoding("gpt2")
     dataset = GPTDatasetV1(

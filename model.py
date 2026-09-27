@@ -28,7 +28,7 @@ class TransformerBlock(nn.Module):
 
         self.drop_shortcut = nn.Dropout(cfg.drop_config.shortcut_drop)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         shortcut = x
         x = self.norm1(x)
         x = self.att(x)
@@ -76,7 +76,7 @@ class GPTModel(nn.Module):
         # But Raschka says it is strictly worse on training performance so we will skip.
         self.out_head = nn.Linear(cfg.emb_dim, cfg.vocab_size, bias=False)
 
-    def forward(self, in_idx):
+    def forward(self, in_idx: torch.Tensor) -> torch.Tensor:
         # NOTE -- assumes already tokenized. Eg B x S token ids
         batch_size, seq_len = in_idx.shape
 

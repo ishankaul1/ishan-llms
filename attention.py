@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class SelfAttentionV1(nn.Module):
-    def __init__(self, d_in, d_out):
+    def __init__(self, d_in: int, d_out: int):
         super().__init__()
 
         self.d_in = d_in
@@ -46,7 +46,7 @@ class SelfAttentionV1(nn.Module):
 
 
 class SelfAttentionV2(nn.Module):
-    def __init__(self, d_in, d_out, qkv_bias=False):
+    def __init__(self, d_in: int, d_out: int, qkv_bias: bool = False):
         super().__init__()
 
         self.d_in = d_in
@@ -86,11 +86,11 @@ class SelfAttentionV2(nn.Module):
 class CausalAttention(nn.Module):
     def __init__(
         self,
-        d_in,
-        d_out,
-        max_ctx_len,
-        dropout,
-        qkv_bias=False,
+        d_in: int,
+        d_out: int,
+        max_ctx_len: int,
+        dropout: float,
+        qkv_bias: bool = False,
     ):
         super().__init__()
 
@@ -155,7 +155,15 @@ class CausalAttention(nn.Module):
 
 
 class MultiHeadAttentionWrapper(nn.Module):
-    def __init__(self, d_in, d_out, ctx_len, dropout, num_heads, kqv_bias=False):
+    def __init__(
+        self,
+        d_in: int,
+        d_out: int,
+        ctx_len: int,
+        dropout: float,
+        num_heads: int,
+        kqv_bias: bool = False,
+    ):
         super().__init__()
         self.heads = nn.ModuleList(
             [
@@ -167,7 +175,7 @@ class MultiHeadAttentionWrapper(nn.Module):
             ]
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Run each head separately on the input, then concatenate on the last dim;
         # EG - we really pull the outputs back together on the final model dimension
 
@@ -179,7 +187,15 @@ class MultiHeadAttentionWrapper(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, ctx_len, dropout, num_heads, kqv_bias=False):
+    def __init__(
+        self,
+        d_in: int,
+        d_out: int,
+        ctx_len: int,
+        dropout: float,
+        num_heads: int,
+        kqv_bias: bool = False,
+    ):
         super().__init__()
 
         # How to get multiple heads?
@@ -208,7 +224,7 @@ class MultiHeadAttention(nn.Module):
             "mask", torch.triu(torch.ones(self.ctx_len, self.ctx_len), diagonal=1)
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # First, need to do projections
 
         # Projections matrices stay the same, we just want _attention itself_ run on separate heads

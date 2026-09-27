@@ -2,16 +2,23 @@
 
 # TODO -- try the Project Gutenberg training example!!
 
+import tiktoken
+import torch
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader
+
+from data import create_dataloader_v1
 from model import GPT_CONFIG_124M, GPTModel
 from utils.constants import THE_VERDICT_URL
 from utils.fetch_text import fetch_text
 
-import tiktoken
-import torch
-from data import create_dataloader_v1
 
-
-def calc_loss_batch(input_batch, target_batch, model, device) -> torch.Tensor:
+def calc_loss_batch(
+    input_batch: torch.Tensor,
+    target_batch: torch.Tensor,
+    model: GPTModel,
+    device: torch.device,
+) -> torch.Tensor:
     # This really just runs the model & flattens the outputs/targets lined up to pass
     # to x-entropy
     input_batch = input_batch.to(device)
@@ -26,7 +33,12 @@ def calc_loss_batch(input_batch, target_batch, model, device) -> torch.Tensor:
     return loss
 
 
-def calc_loss_loader(data_loader, model, device, num_batches=None):
+def calc_loss_loader(
+    data_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    model: GPTModel,
+    device: torch.device,
+    num_batches: int | None = None,
+) -> float:
     total_loss = 0.0
     if len(data_loader) == 0:
         return float("nan")
@@ -48,8 +60,29 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
 
 # NEXT TODO -- 5.2 Actual training loop!!! Pay close attention here. And make sure we follow up with appendix D at the end!
 
-def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer):
-    pass
+def train_model_simple(
+    model: GPTModel,
+    train_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    val_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    optimizer: Optimizer,
+    device: torch.device,
+    num_epochs: int,
+    eval_freq: int,
+    eval_iter: int,
+    start_context: str,
+    tokenizer: tiktoken.Encoding,
+) -> tuple[list[float], list[float], list[int]]:
+    train_losses: list[float] = []
+    val_losses: list[float] = []
+    track_tokens_seen: list[int] = []
+
+    tokens_seen, global_step = 0, -1
+
+    # Each epoch pulls a set of batches and trains on them
+    # Note -- whats the real importance of a difference between batches and epoch? Like not just keep pulling batches?
+    for epoch in range(num_epochs):
+        model.train()
+
 
 if __name__ == "__main__":
     train_ratio = 0.9

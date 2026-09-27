@@ -17,7 +17,7 @@ class GELU(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return (
             0.5
             * x
@@ -45,5 +45,5 @@ class FeedForward(nn.Module):
             nn.Linear(4 * cfg.emb_dim, cfg.emb_dim),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)

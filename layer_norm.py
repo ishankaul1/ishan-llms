@@ -3,7 +3,7 @@ from torch import nn
 
 
 class LayerNorm(nn.Module):
-    def __init__(self, emb_dim):
+    def __init__(self, emb_dim: int):
         super().__init__()
 
         # Prevent div by 0 error on off chance
@@ -26,7 +26,7 @@ class LayerNorm(nn.Module):
         # They mention distributed training as well -- I guess makes sense because it would cut the amount of comms
         # Needed to compute the final mean/variance? Eg an all reduce or similar? I should map out what tha might look like
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         mean = x.mean(dim=-1, keepdim=True)
         var = x.var(dim=-1, keepdim=True, unbiased=False)
 
