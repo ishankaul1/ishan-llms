@@ -17,6 +17,9 @@ def calc_loss_batch(input_batch, target_batch, model, device) -> torch.Tensor:
     input_batch = input_batch.to(device)
     target_batch = target_batch.to(device)
     logits = model(input_batch)
+    # Guess -- logits are B x S x V
+    # Targets -- B x S
+    # Flatten across seq bc each position is its own data point to train on.
     loss = torch.nn.functional.cross_entropy(
         logits.flatten(0, 1), target_batch.flatten()
     )
@@ -45,20 +48,19 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
 
 # NEXT TODO -- 5.2 Actual training loop!!! Pay close attention here. And make sure we follow up with appendix D at the end!
 
+def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer):
+    pass
 
-if __name__  == "__main__":
-
+if __name__ == "__main__":
     train_ratio = 0.9
 
     text = fetch_text(THE_VERDICT_URL)
 
     split_idx = int(train_ratio * len(text))
 
-
     train_data = text[:split_idx]
 
     val_data = text[:split_idx]
-
 
     train_loader = create_dataloader_v1(
         train_data,
@@ -91,13 +93,12 @@ if __name__  == "__main__":
     for x, y in val_loader:
         print(x.shape, y.shape)
 
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = GPTModel(cfg=GPT_CONFIG_124M)
     model.to(device)
 
-    with torch.no_grad(): # disable training/gradient tracking for now
+    with torch.no_grad():  # disable training/gradient tracking for now
         train_loss = calc_loss_loader(train_loader, model, device)
         val_loss = calc_loss_loader(val_loader, model, device)
 
