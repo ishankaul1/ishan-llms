@@ -132,6 +132,9 @@ def train_model_simple(
 
     # Each epoch pulls a set of batches and trains on them
     # Note -- whats the real importance of a difference between batches and epoch? Like not just keep pulling batches?
+
+    # Raschka does mention its common to do one dataset per epoch
+
     for epoch in range(num_epochs):
         # "train" mode -- modules like Dropout auto respond
         model.train()
@@ -287,3 +290,7 @@ if __name__ == "__main__":
         loader_loss_example()
     else:
         run_train_example()
+
+# TODO -- 'interested reader' section; eg do gutenberg; use RunPod GPU's w/ Skypilot
+
+# Next up -- decoding strategies!!
